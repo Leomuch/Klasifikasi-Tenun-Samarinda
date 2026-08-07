@@ -1,0 +1,14 @@
+# Dependencies untuk Klasifikasi Tenun Samarinda (CNN-SVM + CBIR)
+# Python yang disarankan: 3.10 atau 3.11
+#
+# Catatan: TensorFlow 2.13 berjalan di CPU pada Windows native.
+# Jika ingin dukungan GPU di Windows, gunakan tensorflow==2.10.* + CUDA/cuDNN
+# yang sesuai, atau jalankan lewat WSL2.
+
+tensorflow==2.13.0
+scikit-learn==1.3.2
+numpy==1.24.4
+pandas==2.0.3
+pillow==10.2.0
+joblib==1.3.2
+streamlit==1.29.0
