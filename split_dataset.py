@@ -2,14 +2,12 @@
 split_dataset.py
 ================
 Membagi dataset fitur VGG16 menjadi data latih dan data uji menggunakan
-GROUP-BASED SPLIT berdasarkan sumber kain (sarong).
+GROUP-BASED SPLIT berdasarkan sumber kain (sarung).
 
-Pembagian ini bersifat DETERMINISTIK dan mengikuti struktur sarong pada
-skripsi. Setiap sarong diperlakukan sebagai satu grup utuh: seluruh citra
-dari satu sarong hanya masuk ke salah satu subset (latih ATAU uji),
+Pembagian ini bersifat DETERMINISTIK dan mengikuti struktur sarung pada
+skripsi. Setiap sarung diperlakukan sebagai satu grup utuh: seluruh citra
+dari satu sarung hanya masuk ke salah satu subset (latih ATAU uji),
 sehingga tidak terjadi data leakage.
-
-Struktur sarong (lihat Tabel 3.2 skripsi):
 
   Hatta        : Sarong A 001-050 -> latih, Sarong B 051-100 -> uji
   Pucuk_Rebung : Sarong A 001-030 -> latih, Sarong B 031-059 -> latih,
@@ -18,12 +16,12 @@ Struktur sarong (lihat Tabel 3.2 skripsi):
 
 Total: 159 citra latih / 141 citra uji.
 
-Karena batas antar-subset jatuh TEPAT di batas antar-sarong, tidak ada
-satu sarong pun yang potongannya tersebar ke latih dan uji sekaligus.
+Karena batas antar-subset jatuh TEPAT di batas antar-sarung, tidak ada
+satu sarung pun yang potongannya tersebar ke latih dan uji sekaligus.
 Sifat inilah yang membuat pembagian ini sah disebut Group-Based Split.
 
 Catatan: RANDOM_STATE dan TEST_SIZE pada config.py TIDAK digunakan di sini
-karena pembagian mengikuti struktur sarong yang tetap (bukan acak).
+karena pembagian mengikuti struktur sarung yang tetap (bukan acak).
 
 Output split_dataset.npz kompatibel dengan retrieval_db.py dan
 evaluate_retrieval.py (key: X_train, X_test, y_train, y_test,
@@ -40,22 +38,22 @@ from config import CLASS_ORDER, DISPLAY_NAMES
 
 
 # ---------------------------------------------------------------------------
-# Definisi sarong per kelas (rentang nomor file inklusif) + subset tujuan.
-# Ubah di sini bila struktur sarong berubah.
+# Definisi sarung per kelas (rentang nomor file inklusif) + subset tujuan.
+# Ubah di sini bila struktur sarung berubah.
 # ---------------------------------------------------------------------------
 SARONG_GROUPS = {
     "Hatta": [
-        {"sarong": "A", "range": (1, 50),   "subset": "train"},
-        {"sarong": "B", "range": (51, 100), "subset": "test"},
+        {"sarung": "A", "range": (1, 50),   "subset": "train"},
+        {"sarung": "B", "range": (51, 100), "subset": "test"},
     ],
     "Pucuk_Rebung": [
-        {"sarong": "A", "range": (1, 30),   "subset": "train"},
-        {"sarong": "B", "range": (31, 59),  "subset": "train"},
-        {"sarong": "C", "range": (60, 100), "subset": "test"},
+        {"sarung": "A", "range": (1, 30),   "subset": "train"},
+        {"sarung": "B", "range": (31, 59),  "subset": "train"},
+        {"sarung": "C", "range": (60, 100), "subset": "test"},
     ],
     "Cumi": [
-        {"sarong": "A", "range": (1, 50),   "subset": "train"},
-        {"sarong": "B", "range": (51, 100), "subset": "test"},
+        {"sarung": "A", "range": (1, 50),   "subset": "train"},
+        {"sarung": "B", "range": (51, 100), "subset": "test"},
     ],
 }
 
@@ -71,23 +69,23 @@ def parse_index(path):
 
 def resolve_group(class_name, index, path):
     """
-    Tentukan (sarong, subset) untuk sebuah citra berdasarkan kelas & nomornya.
-    Raise bila nomor tidak masuk rentang sarong mana pun.
+    Tentukan (sarung, subset) untuk sebuah citra berdasarkan kelas & nomornya.
+    Raise bila nomor tidak masuk rentang sarung mana pun.
     """
     for g in SARONG_GROUPS[class_name]:
         lo, hi = g["range"]
         if lo <= index <= hi:
-            return f"{class_name}_{g['sarong']}", g["subset"]
+            return f"{class_name}_{g['sarung']}", g["subset"]
     raise ValueError(
         f"Nomor {index} pada '{path}' (kelas {class_name}) tidak masuk "
-        f"rentang sarong mana pun. Periksa penamaan file / SARONG_GROUPS."
+        f"rentang sarung mana pun. Periksa penamaan file / SARONG_GROUPS."
     )
 
 
 def split_by_sarong(labels, paths):
     """
-    Kembalikan (train_idx, test_idx, groups) berdasarkan struktur sarong.
-    groups: array ID sarong tiap citra (untuk verifikasi & laporan).
+    Kembalikan (train_idx, test_idx, groups) berdasarkan struktur sarung.
+    groups: array ID sarung tiap citra (untuk verifikasi & laporan).
     """
     train_idx, test_idx, groups = [], [], []
     for i, (lbl, p) in enumerate(zip(labels, paths)):
@@ -100,11 +98,11 @@ def split_by_sarong(labels, paths):
 
 
 def assert_no_leakage(groups, train_idx, test_idx):
-    """Pastikan tidak ada sarong yang muncul di latih dan uji sekaligus."""
+    """Pastikan tidak ada sarung yang muncul di latih dan uji sekaligus."""
     train_g = set(groups[train_idx])
     test_g = set(groups[test_idx])
     overlap = train_g & test_g
-    assert not overlap, f"BUG: sarong bocor ke latih & uji: {overlap}"
+    assert not overlap, f"BUG: sarung bocor ke latih & uji: {overlap}"
 
 
 def print_distribution(labels, idx, subset_name):
@@ -117,7 +115,7 @@ def print_distribution(labels, idx, subset_name):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Group-Based Split dataset fitur VGG16 (per sarong, deterministik)."
+        description="Group-Based Split dataset fitur VGG16 (per sarung, deterministik)."
     )
     parser.add_argument("--model_dir", default="models",
                         help="Folder berisi vgg16_features.npz dan output split.")
@@ -133,7 +131,7 @@ def main():
         )
 
     print("=" * 70)
-    print("GROUP-BASED SPLIT (per sarong, sesuai Tabel 3.2)")
+    print("GROUP-BASED SPLIT (per sarung, sesuai Tabel 3.2)")
     print("=" * 70)
 
     data = np.load(features_path, allow_pickle=True)
@@ -144,7 +142,7 @@ def main():
 
     train_idx, test_idx, groups = split_by_sarong(labels, paths)
     assert_no_leakage(groups, train_idx, test_idx)
-    print(f"Jumlah sarong unik: {len(set(groups))}")
+    print(f"Jumlah sarung unik: {len(set(groups))}")
 
     X_train, X_test = features[train_idx], features[test_idx]
     y_train, y_test = labels[train_idx], labels[test_idx]
