@@ -96,8 +96,7 @@ def main():
     print("- Hatta          : 100 citra")
     print("- Pucuk Rebung  : 100 citra")
     print("- Cumi          : 100 citra")
-    print("- Catur         : 100 citra")
-    print("- Total         : 400 citra")
+    print("- Total         : 300 citra")
 
 
 if __name__ == "__main__":
