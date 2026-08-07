@@ -2,28 +2,28 @@
 split_dataset.py
 ================
 Membagi dataset fitur VGG16 menjadi data latih dan data uji menggunakan
-GROUP-BASED SPLIT yang sesungguhnya, yaitu pengelompokan berdasarkan
-sumber kain (sarong). Seluruh citra yang berasal dari satu sarong yang
-sama dijamin hanya masuk ke salah satu subset (latih ATAU uji), sehingga
-tidak terjadi data leakage.
+GROUP-BASED SPLIT berdasarkan sumber kain (sarong).
 
-Perbedaan dengan versi lama:
-- Versi lama membagi berdasarkan ambang NOMOR file per kelas
-  (mis. Hatta 1-50 latih, 51-100 uji). Itu bukan group-based split
-  karena tidak menjamin potongan dari sarong yang sama tidak tersebar
-  di kedua subset.
-- Versi ini menggunakan sklearn.model_selection.GroupShuffleSplit
-  dengan grup = ID sarong tiap citra.
+Pembagian ini bersifat DETERMINISTIK dan mengikuti struktur sarong pada
+skripsi. Setiap sarong diperlakukan sebagai satu grup utuh: seluruh citra
+dari satu sarong hanya masuk ke salah satu subset (latih ATAU uji),
+sehingga tidak terjadi data leakage.
 
-Cara menentukan ID sarong (grup), berurutan prioritas:
-  1. File CSV opsional (--groups_csv) berisi kolom: path,group
-     -> paling andal, dipakai bila tersedia.
-  2. Pola nama file: <kelas>_<sarong>_<indeks>.<ext>
-     contoh: hatta_03_007.jpg  -> grup = "hatta_03"
-     (aktif bila --group_from filename, default).
-  3. Fallback: seluruh nomor pada nama file dijadikan grup individual
-     (setara per-citra) dan akan MEMUNCULKAN PERINGATAN, karena berarti
-     tidak ada informasi sarong -> bukan group-based split sejati.
+Struktur sarong (lihat Tabel 3.2 skripsi):
+
+  Hatta        : Sarong A 001-050 -> latih, Sarong B 051-100 -> uji
+  Pucuk_Rebung : Sarong A 001-030 -> latih, Sarong B 031-059 -> latih,
+                 Sarong C 060-100 -> uji
+  Cumi         : Sarong A 001-050 -> latih, Sarong B 051-100 -> uji
+
+Total: 159 citra latih / 141 citra uji.
+
+Karena batas antar-subset jatuh TEPAT di batas antar-sarong, tidak ada
+satu sarong pun yang potongannya tersebar ke latih dan uji sekaligus.
+Sifat inilah yang membuat pembagian ini sah disebut Group-Based Split.
+
+Catatan: RANDOM_STATE dan TEST_SIZE pada config.py TIDAK digunakan di sini
+karena pembagian mengikuti struktur sarong yang tetap (bukan acak).
 
 Output split_dataset.npz kompatibel dengan retrieval_db.py dan
 evaluate_retrieval.py (key: X_train, X_test, y_train, y_test,
@@ -31,161 +31,96 @@ paths_train, paths_test).
 """
 
 import argparse
-import csv
-import os
 import re
 from pathlib import Path
 
 import numpy as np
-from sklearn.model_selection import GroupShuffleSplit
 
-from config import RANDOM_STATE, TEST_SIZE, CLASS_ORDER, DISPLAY_NAMES
-
-
-# ---------------------------------------------------------------------------
-# Penentuan ID grup (sarong)
-# ---------------------------------------------------------------------------
-def load_group_map_from_csv(csv_path):
-    """Baca CSV berisi kolom 'path' dan 'group'. Return dict {path_str: group}."""
-    mapping = {}
-    with open(csv_path, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        if "path" not in reader.fieldnames or "group" not in reader.fieldnames:
-            raise ValueError(
-                "groups_csv harus punya header kolom: path,group "
-                f"(ditemukan: {reader.fieldnames})"
-            )
-        for row in reader:
-            # Normalisasi path agar cocok lintas OS (Windows/Unix).
-            key = os.path.normpath(row["path"].strip())
-            mapping[key] = row["group"].strip()
-    return mapping
-
-
-def group_id_from_filename(path):
-    """
-    Ambil ID sarong dari nama file berpola <kelas>_<sarong>_<indeks>.
-
-    contoh:
-      hatta_03_007.jpg   -> "hatta_03"
-      pucuk_rebung_02_11 -> "pucuk_rebung_02"   (kelas boleh mengandung '_')
-
-    Aturan: buang komponen numerik TERAKHIR (indeks citra), sisanya jadi grup.
-    Return None bila pola tidak dikenali (tidak ada dua komponen bernomor).
-    """
-    stem = Path(path).stem.lower()
-    parts = stem.split("_")
-    if len(parts) < 3:
-        return None
-    # Komponen terakhir harus angka (indeks citra dalam satu sarong).
-    if not parts[-1].isdigit():
-        return None
-    # Komponen kedua-dari-belakang idealnya nomor sarong.
-    group = "_".join(parts[:-1])
-    return group
-
-
-def build_groups(paths, group_from="filename", groups_csv=None):
-    """
-    Bangun array ID grup untuk setiap path.
-    Return (groups: np.ndarray[str], mode_efektif: str, n_unique: int).
-    """
-    paths = [str(p) for p in paths]
-
-    if groups_csv:
-        mapping = load_group_map_from_csv(groups_csv)
-        groups = []
-        missing = []
-        for p in paths:
-            key = os.path.normpath(p)
-            # Coba cocokkan penuh; kalau tidak, coba basename.
-            g = mapping.get(key) or mapping.get(os.path.basename(p))
-            if g is None:
-                missing.append(p)
-                g = f"__nogroup__{os.path.basename(p)}"
-            groups.append(g)
-        if missing:
-            print(f"[PERINGATAN] {len(missing)} citra tidak ada di groups_csv; "
-                  f"dianggap grup sendiri. Contoh: {missing[:3]}")
-        groups = np.array(groups, dtype=object)
-        return groups, "csv", len(set(groups))
-
-    if group_from == "filename":
-        groups = []
-        unknown = 0
-        for p in paths:
-            g = group_id_from_filename(p)
-            if g is None:
-                unknown += 1
-                # fallback: nama file utuh -> grup individual
-                g = f"__solo__{Path(p).stem.lower()}"
-            groups.append(g)
-        groups = np.array(groups, dtype=object)
-        n_unique = len(set(groups))
-        if unknown > 0:
-            print(f"[PERINGATAN] {unknown} nama file tidak mengikuti pola "
-                  f"<kelas>_<sarong>_<indeks>. Citra tsb diperlakukan sebagai "
-                  f"grup individual. Untuk group-split sejati, seragamkan "
-                  f"penamaan atau pakai --groups_csv.")
-        return groups, "filename", n_unique
-
-    raise ValueError(f"group_from tidak dikenali: {group_from}")
+from config import CLASS_ORDER, DISPLAY_NAMES
 
 
 # ---------------------------------------------------------------------------
-# Split
+# Definisi sarong per kelas (rentang nomor file inklusif) + subset tujuan.
+# Ubah di sini bila struktur sarong berubah.
 # ---------------------------------------------------------------------------
-def group_based_split(features, labels, paths, groups,
-                      test_size=TEST_SIZE, random_state=RANDOM_STATE):
+SARONG_GROUPS = {
+    "Hatta": [
+        {"sarong": "A", "range": (1, 50),   "subset": "train"},
+        {"sarong": "B", "range": (51, 100), "subset": "test"},
+    ],
+    "Pucuk_Rebung": [
+        {"sarong": "A", "range": (1, 30),   "subset": "train"},
+        {"sarong": "B", "range": (31, 59),  "subset": "train"},
+        {"sarong": "C", "range": (60, 100), "subset": "test"},
+    ],
+    "Cumi": [
+        {"sarong": "A", "range": (1, 50),   "subset": "train"},
+        {"sarong": "B", "range": (51, 100), "subset": "test"},
+    ],
+}
+
+
+def parse_index(path):
+    """Ambil nomor urut citra dari nama file (kelompok digit terakhir)."""
+    stem = Path(path).stem
+    nums = re.findall(r"\d+", stem)
+    if not nums:
+        raise ValueError(f"Tidak ada nomor pada nama file: {path}")
+    return int(nums[-1])
+
+
+def resolve_group(class_name, index, path):
     """
-    Bagi data dengan GroupShuffleSplit sehingga satu grup (sarong) tidak
-    pernah muncul di train dan test sekaligus.
+    Tentukan (sarong, subset) untuk sebuah citra berdasarkan kelas & nomornya.
+    Raise bila nomor tidak masuk rentang sarong mana pun.
     """
-    n_groups = len(set(groups))
-    if n_groups < 2:
-        raise ValueError(
-            f"Hanya ada {n_groups} grup unik. Group-based split butuh >= 2 grup. "
-            "Periksa penamaan file / groups_csv."
-        )
+    for g in SARONG_GROUPS[class_name]:
+        lo, hi = g["range"]
+        if lo <= index <= hi:
+            return f"{class_name}_{g['sarong']}", g["subset"]
+    raise ValueError(
+        f"Nomor {index} pada '{path}' (kelas {class_name}) tidak masuk "
+        f"rentang sarong mana pun. Periksa penamaan file / SARONG_GROUPS."
+    )
 
-    gss = GroupShuffleSplit(n_splits=1, test_size=test_size,
-                            random_state=random_state)
-    train_idx, test_idx = next(gss.split(features, labels, groups=groups))
 
-    # Verifikasi tidak ada grup yang bocor ke dua sisi.
-    train_groups = set(np.array(groups)[train_idx])
-    test_groups = set(np.array(groups)[test_idx])
-    overlap = train_groups & test_groups
-    assert not overlap, f"BUG: grup bocor ke train & test: {overlap}"
+def split_by_sarong(labels, paths):
+    """
+    Kembalikan (train_idx, test_idx, groups) berdasarkan struktur sarong.
+    groups: array ID sarong tiap citra (untuk verifikasi & laporan).
+    """
+    train_idx, test_idx, groups = [], [], []
+    for i, (lbl, p) in enumerate(zip(labels, paths)):
+        class_name = CLASS_ORDER[int(lbl)]
+        idx = parse_index(p)
+        group_id, subset = resolve_group(class_name, idx, p)
+        groups.append(group_id)
+        (train_idx if subset == "train" else test_idx).append(i)
+    return np.array(train_idx), np.array(test_idx), np.array(groups, dtype=object)
 
-    return train_idx, test_idx
+
+def assert_no_leakage(groups, train_idx, test_idx):
+    """Pastikan tidak ada sarong yang muncul di latih dan uji sekaligus."""
+    train_g = set(groups[train_idx])
+    test_g = set(groups[test_idx])
+    overlap = train_g & test_g
+    assert not overlap, f"BUG: sarong bocor ke latih & uji: {overlap}"
 
 
 def print_distribution(labels, idx, subset_name):
-    """Cetak jumlah citra per kelas pada subset tertentu."""
-    sub = labels[idx]
     print(f"  {subset_name} (total {len(idx)} citra):")
     for cls_i, cls_name in enumerate(CLASS_ORDER):
-        n = int(np.sum(sub == cls_i))
+        n = int(np.sum(labels[idx] == cls_i))
         disp = DISPLAY_NAMES.get(cls_name, cls_name)
         print(f"    - {disp:<20} : {n}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Group-Based Split dataset fitur VGG16 (per sarong)."
+        description="Group-Based Split dataset fitur VGG16 (per sarong, deterministik)."
     )
     parser.add_argument("--model_dir", default="models",
                         help="Folder berisi vgg16_features.npz dan output split.")
-    parser.add_argument("--test_size", type=float, default=TEST_SIZE,
-                        help="Proporsi GRUP untuk data uji (default dari config).")
-    parser.add_argument("--random_state", type=int, default=RANDOM_STATE,
-                        help="Seed untuk reprodusibilitas.")
-    parser.add_argument("--group_from", default="filename",
-                        choices=["filename"],
-                        help="Sumber ID grup bila --groups_csv tidak diberikan.")
-    parser.add_argument("--groups_csv", default=None,
-                        help="CSV opsional berisi kolom path,group (paling andal).")
     args = parser.parse_args()
 
     model_dir = Path(args.model_dir)
@@ -198,7 +133,7 @@ def main():
         )
 
     print("=" * 70)
-    print("GROUP-BASED SPLIT (pengelompokan per sarong)")
+    print("GROUP-BASED SPLIT (per sarong, sesuai Tabel 3.2)")
     print("=" * 70)
 
     data = np.load(features_path, allow_pickle=True)
@@ -207,15 +142,9 @@ def main():
     paths = data["paths"]
     print(f"Memuat {len(features)} citra dari {features_path.name}")
 
-    groups, mode, n_groups = build_groups(
-        paths, group_from=args.group_from, groups_csv=args.groups_csv
-    )
-    print(f"Mode grup: {mode} | jumlah sarong (grup) unik: {n_groups}")
-
-    train_idx, test_idx = group_based_split(
-        features, labels, paths, groups,
-        test_size=args.test_size, random_state=args.random_state,
-    )
+    train_idx, test_idx, groups = split_by_sarong(labels, paths)
+    assert_no_leakage(groups, train_idx, test_idx)
+    print(f"Jumlah sarong unik: {len(set(groups))}")
 
     X_train, X_test = features[train_idx], features[test_idx]
     y_train, y_test = labels[train_idx], labels[test_idx]
