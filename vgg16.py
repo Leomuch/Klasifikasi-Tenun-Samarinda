@@ -55,10 +55,7 @@ def load_feature_extractor():
     )
 
     x = base_model.get_layer("block4_pool").output
-    # avg = GlobalAveragePooling2D()(x)
-    # mx  = GlobalMaxPooling2D()(x)
     x = GlobalAveragePooling2D()(x)
-    # x = Concatenate()([avg, mx])
 
     feature_model = Model(
         inputs=base_model.input,

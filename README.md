@@ -66,7 +66,7 @@ data/
 
 ### Penamaan file untuk Group-Based Split
 
-Agar pembagian data benar-benar mengelompokkan per **kain/sarong** (mencegah
+Agar pembagian data benar-benar mengelompokkan per **kain/sarung** (mencegah
 *data leakage*), beri nama file dengan pola:
 
 ```

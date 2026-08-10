@@ -64,6 +64,12 @@ def main():
         help="Jumlah hasil retrieval."
     )
 
+    parser.add_argument(
+        "--all_classes",
+        action="store_true",
+        help="Retrieval dilakukan dari semua kelas."
+    )
+
     args = parser.parse_args()
     python_exe = sys.executable
 
