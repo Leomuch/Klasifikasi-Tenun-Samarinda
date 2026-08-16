@@ -12,8 +12,10 @@ from classify_image import (
 
 from retrieval import retrieve_similar
 
+
 MODEL_DIR = Path("models")
 TOP_K = 5
+
 
 print("Memuat model...")
 
@@ -23,6 +25,7 @@ class_indices = load_class_indices(MODEL_DIR)
 
 print("Model berhasil dimuat.")
 
+
 data = np.load(
     MODEL_DIR / "split_dataset.npz",
     allow_pickle=True
@@ -31,7 +34,9 @@ data = np.load(
 paths_test = data["paths_test"]
 y_test = data["y_test"]
 
+
 precision_scores = []
+
 
 for image_path, true_label in zip(paths_test, y_test):
 
@@ -51,23 +56,43 @@ for image_path, true_label in zip(paths_test, y_test):
     results = retrieve_similar(
         query_feature=query_feature,
         model_dir=MODEL_DIR,
-        predicted_label=prediction["predicted_label"],
         top_k=TOP_K
     )
 
     relevant = 0
 
     for item in results:
+
         if item["label_index"] == int(true_label):
             relevant += 1
 
     precision_at_5 = relevant / TOP_K
-    precision_scores.append(precision_at_5)
 
-mean_precision = np.mean(precision_scores)
+    precision_scores.append(
+        precision_at_5
+    )
+
+
+mean_precision = np.mean(
+    precision_scores
+)
+
 
 print("\n" + "=" * 60)
 print("EVALUASI RETRIEVAL")
 print("=" * 60)
-print(f"Jumlah query      : {len(precision_scores)}")
-print(f"Mean Precision@5 : {mean_precision:.4f}")
+
+print(
+    f"Jumlah query      : "
+    f"{len(precision_scores)}"
+)
+
+print(
+    f"Top-K             : "
+    f"{TOP_K}"
+)
+
+print(
+    f"Mean Precision@5  : "
+    f"{mean_precision:.4f}"
+)

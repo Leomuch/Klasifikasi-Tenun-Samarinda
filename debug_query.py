@@ -1,5 +1,4 @@
 from pathlib import Path
-
 import joblib
 import numpy as np
 
@@ -13,13 +12,11 @@ from config import (
     DISPLAY_NAMES
 )
 
-
 MODEL_DIR = Path("models")
 
 QUERY_PATH = Path(
     r"D:\Desktop\tes sistem\hatta888.jpg"
 )
-
 
 # ============================================================
 # LOAD MODEL
@@ -30,7 +27,6 @@ feature_model = load_feature_extractor()
 svm_model = joblib.load(
     MODEL_DIR / "svm_cnn_model.pkl"
 )
-
 
 # ============================================================
 # LOAD TRAINING DATA
@@ -51,7 +47,6 @@ print("=" * 70)
 print("X_train :", X_train.shape)
 print("y_train :", y_train.shape)
 
-
 # ============================================================
 # EXTRACT QUERY
 # ============================================================
@@ -63,33 +58,14 @@ query = extract_single_feature(
 
 query = query.reshape(1, -1)
 
-
 print("\n" + "=" * 70)
 print("QUERY")
 print("=" * 70)
 
-print("Query shape:", query.shape)
-
-
-# ============================================================
-# STANDARD SCALER
-# ============================================================
-
-scaler = svm_model.named_steps["scaler"]
-svm = svm_model.named_steps["svm"]
-
-
-X_train_scaled = scaler.transform(
-    X_train
-)
-
-query_scaled = scaler.transform(
-    query
-)
-
+print("Query shape :", query.shape)
 
 # ============================================================
-# DISTANCE RAW FEATURE
+# RAW EUCLIDEAN DISTANCE
 # ============================================================
 
 raw_distances = np.linalg.norm(
@@ -97,36 +73,19 @@ raw_distances = np.linalg.norm(
     axis=1
 )
 
-
 # ============================================================
-# DISTANCE STANDARDIZED FEATURE
-# ============================================================
-
-scaled_distances = np.linalg.norm(
-    X_train_scaled - query_scaled,
-    axis=1
-)
-
-
-# ============================================================
-# ANALISIS SETIAP KELAS
+# DISTANCE PER CLASS
 # ============================================================
 
 print("\n" + "=" * 70)
 print("DISTANCE QUERY TERHADAP SETIAP KELAS")
 print("=" * 70)
 
+for class_index in sorted(np.unique(y_train)):
 
-for class_index in sorted(
-    np.unique(y_train)
-):
+    mask = y_train == class_index
 
-    mask = (
-        y_train == class_index
-    )
-
-    raw = raw_distances[mask]
-    scaled = scaled_distances[mask]
+    distances = raw_distances[mask]
 
     class_name = CLASS_ORDER[
         int(class_index)
@@ -137,44 +96,39 @@ for class_index in sorted(
         class_name
     )
 
+    print(f"\n{display_name}")
+
     print(
-        f"\n{display_name}"
+        f"Jumlah  : {len(distances)}"
     )
 
     print(
-        f"Jumlah        : {len(raw)}"
+        f"Minimum : {np.min(distances):.6f}"
     )
 
     print(
-        f"Raw minimum   : {np.min(raw):.4f}"
+        f"Maximum : {np.max(distances):.6f}"
     )
 
     print(
-        f"Raw mean      : {np.mean(raw):.4f}"
+        f"Mean    : {np.mean(distances):.6f}"
     )
 
     print(
-        f"Scaled minimum: {np.min(scaled):.4f}"
+        f"Median  : {np.median(distances):.6f}"
     )
-
-    print(
-        f"Scaled mean   : {np.mean(scaled):.4f}"
-    )
-
 
 # ============================================================
-# 10 NEAREST RAW
+# TOP 20 NEAREST NEIGHBOR
 # ============================================================
 
 print("\n" + "=" * 70)
-print("10 NEAREST DATASET - RAW FEATURE")
+print("20 NEAREST TRAINING DATA")
 print("=" * 70)
-
 
 nearest = np.argsort(
     raw_distances
-)[:10]
-
+)[:20]
 
 for rank, idx in enumerate(
     nearest,
@@ -197,62 +151,85 @@ for rank, idx in enumerate(
     print(
         f"{rank:2d}. "
         f"{display_name:25s} "
-        f"distance={raw_distances[idx]:.4f}"
+        f"distance={raw_distances[idx]:.6f}"
     )
 
-
 # ============================================================
-# 10 NEAREST STANDARDIZED
+# TOP-K DISTRIBUTION
 # ============================================================
 
 print("\n" + "=" * 70)
-print("10 NEAREST DATASET - STANDARDIZED FEATURE")
+print("DISTRIBUSI NEAREST NEIGHBOR")
 print("=" * 70)
 
+for k in [5, 10, 20]:
 
-nearest_scaled = np.argsort(
-    scaled_distances
-)[:10]
+    top_indices = nearest[:k]
 
-
-for rank, idx in enumerate(
-    nearest_scaled,
-    start=1
-):
-
-    label_index = int(
-        y_train[idx]
-    )
-
-    class_name = CLASS_ORDER[
-        label_index
+    top_labels = y_train[
+        top_indices
     ]
 
-    display_name = DISPLAY_NAMES.get(
-        class_name,
-        class_name
-    )
+    print(f"\nTop-{k}:")
 
-    print(
-        f"{rank:2d}. "
-        f"{display_name:25s} "
-        f"distance={scaled_distances[idx]:.4f}"
-    )
+    for class_index in sorted(
+        np.unique(y_train)
+    ):
 
+        count = np.sum(
+            top_labels == class_index
+        )
+
+        class_name = CLASS_ORDER[
+            int(class_index)
+        ]
+
+        display_name = DISPLAY_NAMES.get(
+            class_name,
+            class_name
+        )
+
+        percentage = (
+            count / k
+        ) * 100
+
+        print(
+            f"- {display_name:25s}: "
+            f"{count:2d}/{k} "
+            f"({percentage:.1f}%)"
+        )
 
 # ============================================================
-# SVM DECISION
+# SVM DECISION FUNCTION
 # ============================================================
 
 print("\n" + "=" * 70)
 print("SVM DECISION FUNCTION")
 print("=" * 70)
 
+# Karena model tanpa StandardScaler,
+# query langsung digunakan.
+
+svm = svm_model
+
+if hasattr(
+    svm_model,
+    "named_steps"
+):
+
+    if "svm" in svm_model.named_steps:
+        svm = svm_model.named_steps["svm"]
 
 decision = svm.decision_function(
-    query_scaled
-)[0]
+    query
+)
 
+decision = np.asarray(
+    decision
+)
+
+if decision.ndim == 2:
+    decision = decision[0]
 
 for class_index, score in zip(
     svm.classes_,
@@ -277,20 +254,9 @@ for class_index, score in zip(
         f"{score:.6f}"
     )
 
-
-# ============================================================
-# MODEL PARAMETERS
-# ============================================================
-
 print("\n" + "=" * 70)
-print("SVM PARAMETERS")
-print("=" * 70)
 
-print("Kernel :", svm.kernel)
-print("C      :", svm.C)
 print(
-    "Class weight:",
-    svm.class_weight
+    "SVM prediction :",
+    svm_model.predict(query)
 )
-
-print("=" * 70)
