@@ -1,13 +1,13 @@
 """
 Membagi dataset fitur VGG16 menjadi data latih dan data uji menggunakan
-STRATIFIED TRAIN-TEST SPLIT dengan proporsi 70:30.
+STRATIFIED TRAIN-TEST SPLIT dengan proporsi 60:40.
 
 Pembagian dilakukan secara acak tetapi tetap mempertahankan proporsi
 setiap kelas pada data latih dan data uji.
 
 Total:
-- 210 citra latih (70%)
-- 90 citra uji (30%)
+- 180 citra latih (60%)
+- 120 citra uji (40%)
 
 Output split_dataset.npz kompatibel dengan retrieval_db.py dan
 evaluate_retrieval.py dengan key:
@@ -56,9 +56,9 @@ def main():
             f"Jalankan vgg16.py terlebih dahulu."
         )
 
-    print("=" * 70)
-    print("STRATIFIED TRAIN-TEST SPLIT 70:30")
-    print("=" * 70)
+    print("=" * 60)
+    print("STRATIFIED TRAIN-TEST SPLIT 60:40")
+    print("=" * 60)
 
     # ---------------------------------------------------------
     # Load dataset fitur VGG16

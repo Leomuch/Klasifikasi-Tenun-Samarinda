@@ -85,15 +85,15 @@ def load_feature_extractor():
     #     weights="imagenet",
     #     include_top=False
     # )
-    #
+    
     # x = base_model.get_layer("block4_pool").output
     # x = GlobalAveragePooling2D()(x)
-    #
+    
     # feature_model = Model(
     #     inputs=base_model.input,
     #     outputs=x
     # )
-    #
+    
     # return feature_model
 
     # ============================================================
