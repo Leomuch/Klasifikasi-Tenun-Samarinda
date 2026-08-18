@@ -46,15 +46,28 @@ def collect_images(dataset_dir: Path):
 def load_feature_extractor():
     """
     Memuat VGG16 pretrained ImageNet.
-    Output fitur diambil dari layer Block4 dengan dimensi 512.
+
+    KONFIGURASI AKTIF:
+    Block3 + Global Average Pooling (GAP)
+
+    Alternatif yang tersedia tetapi dikomentari:
+    - Block4 + GAP
+    - Block4 + Global Max Pooling
+    - Block4 + Average Pooling + Max Pooling
+    - Block5 + GAP
+    - FC1
+    - FC2
     """
+
+    # ============================================================
+    # BLOCK3 + GLOBAL AVERAGE POOLING
+    # ============================================================
     base_model = VGG16(
         weights="imagenet",
-        # include_top=True
         include_top=False
     )
 
-    x = base_model.get_layer("block4_pool").output
+    x = base_model.get_layer("block3_pool").output
     x = GlobalAveragePooling2D()(x)
 
     feature_model = Model(
@@ -63,6 +76,125 @@ def load_feature_extractor():
     )
 
     return feature_model
+
+    # ============================================================
+    # BLOCK4 + GLOBAL AVERAGE POOLING
+    # ============================================================
+
+    # base_model = VGG16(
+    #     weights="imagenet",
+    #     include_top=False
+    # )
+    #
+    # x = base_model.get_layer("block4_pool").output
+    # x = GlobalAveragePooling2D()(x)
+    #
+    # feature_model = Model(
+    #     inputs=base_model.input,
+    #     outputs=x
+    # )
+    #
+    # return feature_model
+
+    # ============================================================
+    # BLOCK4 + GLOBAL MAX POOLING
+    # ============================================================
+
+    # base_model = VGG16(
+    #     weights="imagenet",
+    #     include_top=False
+    # )
+    #
+    # x = base_model.get_layer("block4_pool").output
+    # x = GlobalMaxPooling2D()(x)
+    #
+    # feature_model = Model(
+    #     inputs=base_model.input,
+    #     outputs=x
+    # )
+    #
+    # return feature_model
+
+    # ============================================================
+    # BLOCK4 + AVERAGE + MAX POOLING
+    # ============================================================
+
+    # base_model = VGG16(
+    #     weights="imagenet",
+    #     include_top=False
+    # )
+    #
+    # x = base_model.get_layer("block4_pool").output
+    #
+    # avg_pool = GlobalAveragePooling2D()(x)
+    # max_pool = GlobalMaxPooling2D()(x)
+    #
+    # x = Concatenate()([
+    #     avg_pool,
+    #     max_pool
+    # ])
+    #
+    # feature_model = Model(
+    #     inputs=base_model.input,
+    #     outputs=x
+    # )
+    #
+    # return feature_model
+
+    # ============================================================
+    # BLOCK5 + GLOBAL AVERAGE POOLING
+    # ============================================================
+
+    # base_model = VGG16(
+    #     weights="imagenet",
+    #     include_top=False
+    # )
+    #
+    # x = base_model.get_layer("block5_pool").output
+    # x = GlobalAveragePooling2D()(x)
+    #
+    # feature_model = Model(
+    #     inputs=base_model.input,
+    #     outputs=x
+    # )
+    #
+    # return feature_model
+
+    # ============================================================
+    # Fully Connected 1
+    # ============================================================
+
+    # base_model = VGG16(
+    #     weights="imagenet",
+    #     include_top=True
+    # )
+    #
+    # x = base_model.get_layer("fc1").output
+    #
+    # feature_model = Model(
+    #     inputs=base_model.input,
+    #     outputs=x
+    # )
+    #
+    # return feature_model
+
+    # ============================================================
+    # Fully Connected 2
+    # ============================================================
+
+    # base_model = VGG16(
+    #     weights="imagenet",
+    #     include_top=True
+    # )
+    #
+    # x = base_model.get_layer("fc2").output
+    #
+    # feature_model = Model(
+    #     inputs=base_model.input,
+    #     outputs=x
+    # )
+    #
+    # return feature_model
 
 def lihat_arsitektur_vgg16(feature_model, model_dir: Path):
     """
@@ -73,7 +205,7 @@ def lihat_arsitektur_vgg16(feature_model, model_dir: Path):
     print("ARSITEKTUR VGG16 SEBAGAI FEATURE EXTRACTOR")
     print("=" * 70)
     print(f"Input shape  : {feature_model.input_shape}")
-    print("Output layer : block4")
+    print("Output layer : block3")
     print(f"Output shape : {feature_model.output_shape}")
     print("Keterangan   : Setiap citra menghasilkan 512 fitur.")
     print("=" * 70)
