@@ -267,10 +267,8 @@ def classify_and_retrieve(
     """
     1. Ekstraksi fitur query menggunakan VGG16
     2. Klasifikasi menggunakan SVM
-    3. Retrieval dari SELURUH kelas
-
-    Hasil klasifikasi SVM tidak digunakan
-    untuk membatasi database retrieval.
+    3. Jika Non_Tenun_Samarinda -> tidak melakukan CBIR
+    4. Jika kelas motif -> melakukan retrieval
     """
 
     print("\n" + "=" * 70)
@@ -327,10 +325,38 @@ def classify_and_retrieve(
     )
 
     # ==========================================================
-    # RETRIEVAL SEMUA KELAS
+    # CEK NON-TENUN
     # ==========================================================
 
-    print("\nMelakukan retrieval dari seluruh kelas...")
+    if prediction["is_non_tenun_samarinda"]:
+
+        print("\n" + "=" * 70)
+        print("BUKAN TENUN SAMARINDA")
+        print("=" * 70)
+
+        print(
+            "Citra diklasifikasikan sebagai "
+            "'Bukan Tenun Samarinda'."
+        )
+
+        print(
+            "Proses CBIR dihentikan."
+        )
+
+        return prediction, []
+
+    # ==========================================================
+    # RETRIEVAL
+    # ==========================================================
+
+    print("\n" + "=" * 70)
+    print("MELAKUKAN RETRIEVAL")
+    print("=" * 70)
+
+    print(
+        f"Kelas query : "
+        f"{prediction['label_name']}"
+    )
 
     results = retrieve_similar(
         query_feature=query_feature,
@@ -405,6 +431,18 @@ def main():
         f"Prediksi motif : "
         f"{prediction['label_name']}"
     )
+
+    if prediction["is_non_tenun_samarinda"]:
+        print(
+            "\nCitra bukan merupakan "
+            "Tenun Samarinda."
+        )
+
+        print(
+            "CBIR tidak dilakukan."
+        )
+
+        return
 
     print(
         f"Confidence     : "

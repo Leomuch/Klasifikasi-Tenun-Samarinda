@@ -181,6 +181,10 @@ def predict_feature(
         str(predicted_label)
     )
 
+    is_non_tenun_samarinda = (
+        predicted_label == CLASS_ORDER.index("Non_Tenun_Samarinda")
+    )
+
     print(
         f"\nPredicted label     : "
         f"{predicted_label}"
@@ -390,7 +394,8 @@ def predict_feature(
         "label_name": label_name,
         "confidence": confidence,
         "probability_dict": probability_dict,
-        "decision_dict": decision_dict
+        "decision_dict": decision_dict,
+        "is_non_tenun_samarinda": is_non_tenun_samarinda
     }
 
 
@@ -480,6 +485,12 @@ def main():
         f"Prediksi motif : "
         f"{prediction['label_name']}"
     )
+
+    if prediction["is_non_tenun_samarinda"]:
+        print(
+            "\nCitra terdeteksi sebagai objek "
+            "di luar kelas motif Tenun Samarinda."
+        )
 
     print(
         f"Confidence     : "

@@ -3,14 +3,16 @@
 CLASS_ORDER = [
     "Hatta",
     "Pucuk_Rebung",
-    "Cumi"
+    "Cumi",
+    "Non_Tenun_Samarinda"
 ]
 
 # Nama yang ditampilkan di aplikasi Streamlit
 DISPLAY_NAMES = {
     "Hatta": "Hatta",
     "Pucuk_Rebung": "Pucuk Rebung",
-    "Cumi": "Cumi / Bunga Dayak"
+    "Cumi": "Cumi / Bunga Dayak",
+    "Non_Tenun_Samarinda": "Bukan Tenun Samarinda"
 }
 
 # Format gambar yang diterima

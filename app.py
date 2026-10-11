@@ -509,13 +509,19 @@ with col1:
                     #     Euclidean Distance
                     # ==========================================
 
-                    retrieval_results = (
-                        retrieve_similar(
-                            query_feature=query_feature,
-                            model_dir=MODEL_DIR,
-                            top_k=top_k
+                    if prediction["is_non_tenun_samarinda"]:
+
+                        retrieval_results = []
+
+                    else:
+
+                        retrieval_results = (
+                            retrieve_similar(
+                                query_feature=query_feature,
+                                model_dir=MODEL_DIR,
+                                top_k=top_k
+                            )
                         )
-                    )
 
                 # ==============================================
                 # SAVE SESSION STATE
@@ -561,12 +567,25 @@ with col2:
 
     if st.session_state.classified:
 
-        st.success(
-            "Klasifikasi berhasil"
-        )
+        if (
+            st.session_state.predicted_label
+            == DISPLAY_NAMES["Non_Tenun_Samarinda"]
+        ):
+
+            st.warning(
+                "Citra bukan merupakan "
+                "Tenun Samarinda."
+            )
+
+        else:
+
+            st.success(
+                "Citra terdeteksi sebagai "
+                "motif Tenun Samarinda."
+            )
 
         st.write(
-            f"**Label Motif:** "
+            f"**Hasil Klasifikasi:** "
             f"{st.session_state.predicted_label}"
         )
 
@@ -611,12 +630,14 @@ with col2:
 
 st.divider()
 
-st.subheader(
-    "Top Citra Paling Mirip"
-)
+if (
+    st.session_state.predicted_label
+    != DISPLAY_NAMES["Non_Tenun_Samarinda"]
+):
 
-
-if st.session_state.classified:
+    st.subheader(
+        "Top Citra Paling Mirip"
+    )
 
     results = (
         st.session_state.retrieval_results
@@ -680,12 +701,15 @@ if st.session_state.classified:
     else:
 
         st.warning(
-            "Tidak ada hasil retrieval yang ditemukan."
+            "Tidak ada hasil retrieval."
         )
 
 else:
 
+    st.divider()
+
     st.info(
-        "Hasil retrieval akan tampil "
-        "setelah klasifikasi selesai."
+        "CBIR tidak dilakukan karena "
+        "citra terdeteksi sebagai "
+        "Bukan Tenun Samarinda."
     )

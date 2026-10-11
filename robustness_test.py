@@ -13,9 +13,12 @@ Prasyarat: sudah menjalankan split_dataset dan train.
 """
 
 from pathlib import Path
+import time
 
 import numpy as np
 import pandas as pd
+import psutil
+import tensorflow as tf
 from PIL import Image, ImageOps, ImageFilter, ImageEnhance
 
 from tensorflow.keras.applications.vgg16 import preprocess_input
@@ -77,11 +80,44 @@ TRANSFORMS = {
     "Resolusi rendah (1/4)": lambda im: low_res(im, factor=4),
 }
 
+def show_hardware_info():
+    print("=" * 70)
+    print("INFORMASI HARDWARE / TENSORFLOW")
+    print("=" * 70)
+
+    print(f"TensorFlow version : {tf.__version__}")
+
+    gpus = tf.config.list_physical_devices("GPU")
+    cpus = tf.config.list_physical_devices("CPU")
+
+    print(f"CPU terdeteksi     : {len(cpus)}")
+    print(f"GPU terdeteksi     : {len(gpus)}")
+
+    if gpus:
+        print("Status GPU         : TERDETEKSI")
+        for gpu in gpus:
+            print(f"GPU                : {gpu}")
+    else:
+        print("Status GPU         : TIDAK TERDETEKSI")
+        print("TensorFlow akan menggunakan CPU.")
+
+    ram = psutil.virtual_memory()
+
+    print(f"RAM total          : {ram.total / (1024**3):.2f} GB")
+    print(f"RAM digunakan      : {ram.used / (1024**3):.2f} GB")
+    print(f"RAM tersedia       : {ram.available / (1024**3):.2f} GB")
+    print(f"RAM usage          : {ram.percent:.2f}%")
+
+    print("=" * 70)
+    print()
+
 
 def main():
     # seed agar noise reproducible
     np.random.seed(50)
 
+    show_hardware_info()
+    
     if not SPLIT_PATH.exists():
         raise FileNotFoundError(
             f"{SPLIT_PATH} tidak ada. Jalankan split_dataset dulu."
