@@ -1,3 +1,4 @@
+
 import argparse
 import json
 from pathlib import Path
@@ -12,6 +13,8 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix
 )
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
 from config import (
@@ -49,7 +52,6 @@ def train_svm(X_train, X_test, y_train, y_test):
     for label, count in zip(unique_train, train_counts):
 
         label = int(label)
-
         class_name = CLASS_ORDER[label]
 
         display_name = DISPLAY_NAMES.get(
@@ -75,7 +77,6 @@ def train_svm(X_train, X_test, y_train, y_test):
     )
 
     if cv_splits < 2:
-
         raise ValueError(
             "Jumlah data latih per kelas terlalu sedikit "
             "untuk cross-validation."
@@ -90,34 +91,30 @@ def train_svm(X_train, X_test, y_train, y_test):
     print("Shuffle     : True")
 
     # ==============================================================
-    # SVM TANPA STANDARD SCALER
+    # PIPELINE: STANDARD SCALER + SVM
     # ==============================================================
 
-    svm = SVC(
-        decision_function_shape="ovr",
-        probability=True,
-        random_state=RANDOM_STATE
-    )
+    pipeline = Pipeline([
+        ("scaler", StandardScaler()),
+        ("svm", SVC(
+            decision_function_shape="ovr",
+            probability=True,
+            random_state=RANDOM_STATE
+        ))
+    ])
 
     # ==============================================================
     # PARAMETER GRID
     # ==============================================================
 
     param_grid = {
-        # ----------------------------------------------------------
-        # 3 KERNEL: LINEAR, RBF, POLY
-        # ----------------------------------------------------------
-        "kernel": [
+        "svm__kernel": [
             "linear",
             "rbf",
             "poly"
         ],
 
-        # ----------------------------------------------------------
-        # 7 NILAI C
-        # ----------------------------------------------------------
-
-        "C": [
+        "svm__C": [
             0.001,
             0.01,
             0.1,
@@ -126,25 +123,16 @@ def train_svm(X_train, X_test, y_train, y_test):
             100
         ],
 
-        # ----------------------------------------------------------
-        # 4 NILAI GAMMA (untuk RBF & Poly; diabaikan untuk Linear)
-        # ----------------------------------------------------------
-
-        "gamma": [
+        "svm__gamma": [
             "scale",
             "auto",
             0.001,
             0.01
         ]
-
     }
 
     total_combinations = (
-        3
-        *
-        6
-        *
-        4
+        3 * 6 * 4
     )
 
     print("\n" + "=" * 70)
@@ -181,7 +169,7 @@ def train_svm(X_train, X_test, y_train, y_test):
     # ==============================================================
 
     grid = GridSearchCV(
-        estimator=svm,
+        estimator=pipeline,
         param_grid=param_grid,
         scoring="f1_weighted",
         cv=cv,
@@ -191,7 +179,7 @@ def train_svm(X_train, X_test, y_train, y_test):
     )
 
     print(
-        "\nMulai GridSearchCV tanpa StandardScaler...\n"
+        "\nMulai GridSearchCV dengan StandardScaler...\n"
     )
 
     grid.fit(
@@ -283,12 +271,11 @@ def train_svm(X_train, X_test, y_train, y_test):
     # ==============================================================
 
     metrics = {
-
         "feature_dimension": int(
             X_train.shape[1]
         ),
 
-        "scaler": None,
+        "scaler": "StandardScaler",
 
         "model": "SVM",
 
@@ -334,7 +321,7 @@ def main():
         description=(
             "Training model SVM menggunakan "
             "fitur VGG16 Block4 + GAP "
-            "tanpa StandardScaler."
+            "dengan StandardScaler."
         )
     )
 
@@ -362,7 +349,6 @@ def main():
     )
 
     if not split_path.exists():
-
         raise FileNotFoundError(
             f"File split tidak ditemukan: "
             f"{split_path}. "
@@ -412,7 +398,6 @@ def main():
     # ==============================================================
 
     if X_train.shape[1] != 512:
-
         print(
             "\nWARNING:"
             "\nFeature dimension bukan 512."
@@ -426,7 +411,7 @@ def main():
     print(
         "\nMulai training SVM "
         "dengan GridSearchCV "
-        "tanpa StandardScaler..."
+        "dan StandardScaler..."
     )
 
     (
@@ -533,8 +518,7 @@ def main():
     )
 
     print(
-        f"StandardScaler  : "
-        f"Tidak digunakan"
+        "StandardScaler  : Digunakan"
     )
 
     print(
@@ -599,14 +583,12 @@ def main():
     print("=" * 70)
 
     if len(wrong_idx) == 0:
-
         print(
             "Tidak ada gambar yang "
             "salah diklasifikasikan."
         )
 
     else:
-
         for idx in wrong_idx:
 
             true_label = int(

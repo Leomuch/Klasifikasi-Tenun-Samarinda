@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from sklearn.preprocessing import normalize
 
 import numpy as np
 
@@ -81,10 +82,11 @@ def retrieve_similar(
     top_k=5
 ):
     """
-    Mencari citra paling mirip dari SELURUH kelas.
+    Mencari citra paling mirip dari database motif
+    Tenun Samarinda.
 
-    Retrieval tidak menggunakan hasil prediksi SVM
-    sebagai filter.
+    Kelas Non_Tenun_Samarinda tidak dimasukkan
+    ke database retrieval.
     """
 
     feature_db = load_feature_database(model_dir)
@@ -102,8 +104,17 @@ def retrieve_similar(
         f"{query_feature.shape}"
     )
 
-    # Ubah menjadi (1, jumlah_fitur)
+    # ==========================================================
+    # RESHAPE DAN L2-NORMALIZATION QUERY
+    # ==========================================================
+
     query_feature = query_feature.reshape(1, -1)
+
+    query_feature = normalize(
+        query_feature,
+        norm="l2",
+        axis=1
+    )
 
     print(
         f"Shape query setelah reshape  : "
