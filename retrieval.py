@@ -1,14 +1,11 @@
 import argparse
 from pathlib import Path
 from sklearn.preprocessing import normalize
-
 import numpy as np
-
 from config import (
     CLASS_ORDER,
     DISPLAY_NAMES,
 )
-
 from classify_image import (
     load_feature_extractor,
     load_svm_model,
@@ -17,66 +14,53 @@ from classify_image import (
     predict_feature
 )
 
-
 def load_feature_database(model_dir: Path):
-    db_path = model_dir / "retrieval_database.npz"
 
+    db_path = model_dir / "retrieval_database.npz"
     if not db_path.exists():
         raise FileNotFoundError(
             f"Database retrieval tidak ditemukan: {db_path}. "
             "Jalankan retrieval_db.py terlebih dahulu."
         )
-
     db = np.load(db_path, allow_pickle=True)
-
     features = db["features"]
     labels = db["labels"]
     paths = db["paths"]
-
     print("\n" + "=" * 70)
     print("INFORMASI DATABASE RETRIEVAL")
     print("=" * 70)
-
     print(f"Path database     : {db_path}")
     print(f"Shape features    : {features.shape}")
     print(f"Shape labels      : {labels.shape}")
     print(f"Shape paths       : {paths.shape}")
     print(f"Jumlah citra      : {len(labels)}")
     print(f"Jumlah fitur      : {features.shape[1]}")
-
     # Distribusi kelas
     print("\nDistribusi kelas database:")
-
     unique_labels, counts = np.unique(
         labels,
         return_counts=True
     )
-
     for label, count in zip(unique_labels, counts):
         label_index = int(label)
-
         class_name = CLASS_ORDER[label_index]
-
         label_name = DISPLAY_NAMES.get(
             class_name,
             class_name
         )
-
         print(
             f"- {label_name:25s}: "
             f"{count:4d} citra"
         )
-
     print("=" * 70)
-
     return {
         "features": features,
         "labels": labels,
         "paths": paths
     }
 
-
 def retrieve_similar(
+
     query_feature,
     model_dir: Path,
     top_k=5
@@ -84,21 +68,16 @@ def retrieve_similar(
     """
     Mencari citra paling mirip dari database motif
     Tenun Samarinda.
-
     Kelas Non_Tenun_Samarinda tidak dimasukkan
     ke database retrieval.
     """
-
     feature_db = load_feature_database(model_dir)
-
     db_features = feature_db["features"]
     db_labels = feature_db["labels"]
     db_paths = feature_db["paths"]
-
     print("\n" + "=" * 70)
     print("INFORMASI QUERY FEATURE")
     print("=" * 70)
-
     print(
         f"Shape query sebelum reshape : "
         f"{query_feature.shape}"
@@ -109,32 +88,29 @@ def retrieve_similar(
     # ==========================================================
 
     query_feature = query_feature.reshape(1, -1)
-
     query_feature = normalize(
         query_feature,
         norm="l2",
         axis=1
     )
-
     print(
         f"Shape query setelah reshape  : "
         f"{query_feature.shape}"
     )
-
     print(
         f"Jumlah fitur database        : "
         f"{db_features.shape[1]}"
     )
-
     print(
         f"Jumlah fitur query           : "
         f"{query_feature.shape[1]}"
     )
-
     print("=" * 70)
 
     # ==========================================================
+
     # VALIDASI DIMENSI
+
     # ==========================================================
 
     if db_features.ndim != 2:
@@ -143,13 +119,11 @@ def retrieve_similar(
             f"Shape database: {db_features.shape}\n"
             "Database harus berbentuk (jumlah_citra, jumlah_fitur)."
         )
-
     if query_feature.ndim != 2:
         raise ValueError(
             "\nQuery feature memiliki bentuk yang tidak valid!\n"
             f"Shape query: {query_feature.shape}"
         )
-
     if db_features.shape[1] != query_feature.shape[1]:
         raise ValueError(
             "\n"
@@ -177,7 +151,6 @@ def retrieve_similar(
     # ==========================================================
 
     print("\nDimensi fitur VALID.")
-
     if db_features.shape[1] == 512:
         print(
             "✓ Fitur menggunakan 512 dimensi "
@@ -193,17 +166,14 @@ def retrieve_similar(
     # ==========================================================
 
     print("\nMenghitung Euclidean Distance...")
-
     distance = np.linalg.norm(
         db_features - query_feature,
         axis=1
     )
-
     print(
         f"Distance minimum : "
         f"{np.min(distance):.4f}"
     )
-
     print(
         f"Distance maksimum : "
         f"{np.max(distance):.4f}"
@@ -216,19 +186,15 @@ def retrieve_similar(
     candidate_indices = np.arange(
         len(db_labels)
     )
-
     if len(candidate_indices) == 0:
         return []
-
     # Urutkan berdasarkan distance terkecil
     candidate_distance = distance[
         candidate_indices
     ]
-
     sorted_local_indices = np.argsort(
         candidate_distance
     )[:top_k]
-
     top_indices = candidate_indices[
         sorted_local_indices
     ]
@@ -238,25 +204,20 @@ def retrieve_similar(
     # ==========================================================
 
     results = []
-
     for rank, idx in enumerate(
         top_indices,
         start=1
     ):
-
         label_index = int(
             db_labels[idx]
         )
-
         class_name = CLASS_ORDER[
             label_index
         ]
-
         label_name = DISPLAY_NAMES.get(
             class_name,
             class_name
         )
-
         results.append({
             "rank": rank,
             "path": str(db_paths[idx]),
@@ -266,11 +227,10 @@ def retrieve_similar(
                 distance[idx]
             )
         })
-
     return results
 
-
 def classify_and_retrieve(
+
     image_path: Path,
     model_dir: Path,
     top_k=5
@@ -281,24 +241,18 @@ def classify_and_retrieve(
     3. Jika Non_Tenun_Samarinda -> tidak melakukan CBIR
     4. Jika kelas motif -> melakukan retrieval
     """
-
     print("\n" + "=" * 70)
     print("MEMUAT FEATURE EXTRACTOR")
     print("=" * 70)
-
     feature_model = load_feature_extractor()
-
     print(
         f"Feature extractor output shape : "
         f"{feature_model.output_shape}"
     )
-
     print("=" * 70)
-
     svm_model = load_svm_model(
         model_dir
     )
-
     class_indices = load_class_indices(
         model_dir
     )
@@ -310,17 +264,14 @@ def classify_and_retrieve(
     print("\n" + "=" * 70)
     print("EKSTRAKSI FITUR QUERY")
     print("=" * 70)
-
     query_feature = extract_single_feature(
         feature_model=feature_model,
         image_path=image_path
     )
-
     print(
         f"Query feature shape : "
         f"{query_feature.shape}"
     )
-
     print("=" * 70)
 
     # ==========================================================
@@ -328,7 +279,6 @@ def classify_and_retrieve(
     # ==========================================================
 
     print("\nMelakukan klasifikasi SVM...")
-
     prediction = predict_feature(
         svm_model=svm_model,
         query_feature=query_feature,
@@ -340,20 +290,16 @@ def classify_and_retrieve(
     # ==========================================================
 
     if prediction["is_non_tenun_samarinda"]:
-
         print("\n" + "=" * 70)
         print("BUKAN TENUN SAMARINDA")
         print("=" * 70)
-
         print(
             "Citra diklasifikasikan sebagai "
             "'Bukan Tenun Samarinda'."
         )
-
         print(
             "Proses CBIR dihentikan."
         )
-
         return prediction, []
 
     # ==========================================================
@@ -363,20 +309,16 @@ def classify_and_retrieve(
     print("\n" + "=" * 70)
     print("MELAKUKAN RETRIEVAL")
     print("=" * 70)
-
     print(
         f"Kelas query : "
         f"{prediction['label_name']}"
     )
-
     results = retrieve_similar(
         query_feature=query_feature,
         model_dir=model_dir,
         top_k=top_k
     )
-
     return prediction, results
-
 
 def main():
 
@@ -386,44 +328,36 @@ def main():
             "Top-K citra paling mirip dari semua kelas."
         )
     )
-
     parser.add_argument(
         "--image_path",
         type=str,
         required=True,
         help="Path citra query."
     )
-
     parser.add_argument(
         "--model_dir",
         type=str,
         default="models",
         help="Folder model."
     )
-
     parser.add_argument(
         "--top_k",
         type=int,
         default=5,
         help="Jumlah hasil retrieval."
     )
-
     args = parser.parse_args()
-
     image_path = Path(
         args.image_path
     )
-
     model_dir = Path(
         args.model_dir
     )
-
     if not image_path.exists():
         raise FileNotFoundError(
             f"Citra tidak ditemukan: "
             f"{image_path}"
         )
-
     prediction, results = classify_and_retrieve(
         image_path=image_path,
         model_dir=model_dir,
@@ -437,24 +371,19 @@ def main():
     print("\n" + "=" * 70)
     print("HASIL KLASIFIKASI")
     print("=" * 70)
-
     print(
         f"Prediksi motif : "
         f"{prediction['label_name']}"
     )
-
     if prediction["is_non_tenun_samarinda"]:
         print(
             "\nCitra bukan merupakan "
             "Tenun Samarinda."
         )
-
         print(
             "CBIR tidak dilakukan."
         )
-
         return
-
     print(
         f"Confidence     : "
         f"{prediction['confidence']:.2f}%"
@@ -465,15 +394,12 @@ def main():
     # ==========================================================
 
     if prediction["probability_dict"]:
-
         print("\nProbabilitas per kelas:")
-
         for label_name, prob in (
             prediction[
                 "probability_dict"
             ].items()
         ):
-
             print(
                 f"- {label_name:25s}: "
                 f"{prob:.2f}%"
@@ -484,24 +410,17 @@ def main():
     # ==========================================================
 
     print("\n" + "=" * 70)
-
     print(
         f"TOP-{args.top_k} "
         "CITRA PALING MIRIP (SEMUA KELAS)"
     )
-
     print("=" * 70)
-
     if not results:
-
         print(
             "Tidak ada hasil retrieval."
         )
-
     else:
-
         for item in results:
-
             print(
                 f"{item['rank']}. "
                 f"{item['label_name']} | "
@@ -509,7 +428,5 @@ def main():
                 f"{item['distance']:.4f} | "
                 f"{item['path']}"
             )
-
-
 if __name__ == "__main__":
     main()
