@@ -1,49 +1,58 @@
-"""
-Membagi dataset fitur VGG16 menjadi data latih dan data uji menggunakan
-STRATIFIED TRAIN-TEST SPLIT dengan proporsi 60:40.
-
-Pembagian dilakukan secara acak tetapi tetap mempertahankan proporsi
-setiap kelas pada data latih dan data uji.
-
-Total:
-- 180 citra latih (60%)
-- 120 citra uji (40%)
-
-Output split_dataset.npz kompatibel dengan retrieval_db.py dan
-evaluate_retrieval.py dengan key:
-X_train, X_test, y_train, y_test, paths_train, paths_test.
-"""
 
 import argparse
 from pathlib import Path
 
 import numpy as np
-from sklearn.model_selection import train_test_split
 
 from config import CLASS_ORDER, DISPLAY_NAMES
 
 
-def print_distribution(labels, idx, subset_name):
-    """Menampilkan distribusi kelas pada subset."""
-    print(f"  {subset_name} (total {len(idx)} citra):")
+def get_split_from_path(image_path):
+    """Menentukan split berdasarkan folder train/test pada path."""
+    parts = Path(
+        str(image_path).replace("\\", "/")
+    ).parts
 
-    for cls_i, cls_name in enumerate(CLASS_ORDER):
-        n = int(np.sum(labels[idx] == cls_i))
-        disp = DISPLAY_NAMES.get(cls_name, cls_name)
-        print(f"    - {disp:<20} : {n}")
+    split_parts = [
+        part.lower()
+        for part in parts
+        if part.lower() in ("train", "test")
+    ]
+
+    if len(split_parts) != 1:
+        raise ValueError(
+            f"Path harus memuat tepat satu folder train/test: "
+            f"{image_path}"
+        )
+
+    return split_parts[0]
+
+
+def print_distribution(labels, indices, subset_name):
+    print(f"\n{subset_name} ({len(indices)} citra):")
+
+    for class_index, class_name in enumerate(CLASS_ORDER):
+        count = int(
+            np.sum(labels[indices] == class_index)
+        )
+        display_name = DISPLAY_NAMES.get(
+            class_name, class_name
+        )
+        print(f"  {display_name:<25}: {count}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Stratified Train-Test Split dataset fitur VGG16 (70:30)."
+        description=(
+            "Menyusun split fitur VGG16 berdasarkan folder "
+            "train/test yang sudah ditetapkan."
+        )
     )
-
     parser.add_argument(
         "--model_dir",
         default="models",
-        help="Folder berisi vgg16_features.npz dan output split."
+        help="Folder fitur dan model."
     )
-
     args = parser.parse_args()
 
     model_dir = Path(args.model_dir)
@@ -53,73 +62,73 @@ def main():
     if not features_path.exists():
         raise FileNotFoundError(
             f"{features_path} tidak ditemukan. "
-            f"Jalankan vgg16.py terlebih dahulu."
+            "Jalankan ekstraksi fitur VGG16 terlebih dahulu."
         )
 
-    print("=" * 60)
-    print("STRATIFIED TRAIN-TEST SPLIT 60:40")
-    print("=" * 60)
-
-    # ---------------------------------------------------------
-    # Load dataset fitur VGG16
-    # ---------------------------------------------------------
-    data = np.load(features_path, allow_pickle=True)
+    data = np.load(
+        features_path,
+        allow_pickle=True
+    )
 
     features = data["features"]
     labels = data["labels"]
     paths = data["paths"]
 
-    print(f"Memuat {len(features)} citra dari {features_path.name}")
+    if not (
+        len(features) == len(labels) == len(paths)
+    ):
+        raise ValueError(
+            "Jumlah fitur, label, dan path tidak sama."
+        )
 
-    # ---------------------------------------------------------
-    # Membuat indeks seluruh data
-    # ---------------------------------------------------------
-    indices = np.arange(len(features))
+    # Tentukan pembagian berdasarkan lokasi file,
+    # bukan dengan pembagian acak.
+    split_names = [
+        get_split_from_path(path)
+        for path in paths
+    ]
 
-    # ---------------------------------------------------------
-    # Stratified split 70:30
-    # ---------------------------------------------------------
-    train_idx, test_idx = train_test_split(
-        indices,
-        test_size=0.40,
-        train_size=0.60,
-        stratify=labels,
-        random_state=42,
-        shuffle=True
-    )
+    train_idx = np.array([
+        i for i, split in enumerate(split_names)
+        if split == "train"
+    ], dtype=int)
 
-    # ---------------------------------------------------------
-    # Ambil data berdasarkan indeks
-    # ---------------------------------------------------------
+    test_idx = np.array([
+        i for i, split in enumerate(split_names)
+        if split == "test"
+    ], dtype=int)
+
+    if len(train_idx) == 0 or len(test_idx) == 0:
+        raise ValueError(
+            "Train atau test kosong. Periksa struktur folder "
+            "dataset hasil preprocessing."
+        )
+
+    # Pastikan tidak ada path yang masuk ke kedua subset.
+    train_paths = {str(paths[i]) for i in train_idx}
+    test_paths = {str(paths[i]) for i in test_idx}
+
+    if train_paths.intersection(test_paths):
+        raise ValueError(
+            "Ditemukan path yang sama di train dan test."
+        )
+
     X_train = features[train_idx]
     X_test = features[test_idx]
-
     y_train = labels[train_idx]
     y_test = labels[test_idx]
-
     paths_train = paths[train_idx]
     paths_test = paths[test_idx]
 
-    # ---------------------------------------------------------
-    # Tampilkan distribusi
-    # ---------------------------------------------------------
-    print("\nHasil pembagian:")
+    print("=" * 70)
+    print("SPLIT DATASET BERDASARKAN FOLDER")
+    print("=" * 70)
+    print("Metode: menggunakan folder train/test yang sudah tersedia")
+    print("Random split: tidak digunakan")
 
-    print_distribution(
-        labels,
-        train_idx,
-        "Data latih"
-    )
+    print_distribution(labels, train_idx, "DATA TRAIN")
+    print_distribution(labels, test_idx, "DATA TEST")
 
-    print_distribution(
-        labels,
-        test_idx,
-        "Data uji"
-    )
-
-    # ---------------------------------------------------------
-    # Simpan hasil split
-    # ---------------------------------------------------------
     np.savez_compressed(
         output_path,
         X_train=X_train,
@@ -133,12 +142,16 @@ def main():
         paths_test=np.array(
             [str(p) for p in paths_test],
             dtype=object
-        ),
+        )
     )
 
-    print(f"\nSplit disimpan ke: {output_path}")
-    print(f"Total: {len(X_train)} latih / {len(X_test)} uji")
-    print("SPLIT SELESAI.")
+    print("\n" + "=" * 70)
+    print("SPLIT SELESAI")
+    print("=" * 70)
+    print(f"Train: {len(X_train)} citra")
+    print(f"Test : {len(X_test)} citra")
+    print(f"Fitur: {X_train.shape[1]} dimensi")
+    print(f"Output: {output_path.resolve()}")
 
 
 if __name__ == "__main__":
