@@ -152,10 +152,7 @@ def retrieve_similar(
 
     print("\nDimensi fitur VALID.")
     if db_features.shape[1] == 512:
-        print(
-            "✓ Fitur menggunakan 512 dimensi "
-            "(Block4 + Global Average Pooling)."
-        )
+        print(f"Dimensi fitur valid: {db_features.shape[1]} fitur.")
     else:
         print(
             "⚠️ Jumlah fitur bukan 512."

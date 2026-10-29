@@ -187,6 +187,30 @@ def train_svm(X_train, X_test, y_train, y_test):
         y_train
     )
 
+    # Simpan hasil seluruh kombinasi Grid Search
+    cv_results = pd.DataFrame(grid.cv_results_)
+
+    cv_results = cv_results.sort_values(
+        by="rank_test_score"
+    )
+
+    cv_results.to_csv(
+        "models/svm_grid_search_results.csv",
+        index=False
+    )
+
+    print("\n10 konfigurasi terbaik:")
+    print(
+        cv_results[
+            [
+                "rank_test_score",
+                "mean_test_score",
+                "std_test_score",
+                "params",
+            ]
+        ].head(10).to_string(index=False)
+    )
+
     # ==============================================================
     # MODEL TERBAIK
     # ==============================================================
